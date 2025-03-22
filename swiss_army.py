@@ -3,11 +3,15 @@ from PIL import Image
 import cv2
 import numpy as np
 import os
+import albumentations as A
+import uuid
+
 
 #declaration of directories 
 input_dir = "C:\\Users\\ianse\\Projects\\sample_image_input"
 output_dir_png = "C:\\Users\\ianse\\Projects\\sample_image_output"
 output_dir_crop = "C:\\Users\\ianse\\Projects\\cropped_image_output"
+output_dir_augmented = "C:\\Users\\ianse\\Projects\\augmented_image_output"
 
 #image conversion to png (accepted type by CVAT)
 def convert_heic_to_png(heic_folder, png_output_folder):
@@ -68,6 +72,33 @@ def crop_png_images(png_folder, cropped_output_folder):
             else:
                 print(f"Failed to load image: {filename}")
 
+def augment_images(cropped_folder, augmented_folder):
+    augmentations = A.Compose([
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomRotate90(p=0.5),
+        A.Perspective(scale=(0.05, 0.1), p=0.5),
+        A.RandomBrightnessContrast(p=0.5),
+    ])
+
+    if not os.path.exists(augmented_folder):
+        os.makedirs(augmented_folder)
+
+    for filename in os.listdir(cropped_folder):
+        if filename.lower().endswith(".png"):
+            path = os.path.join(cropped_folder, filename)
+            image = cv2.imread(path)
+            if image is None:
+                print(f"Failed to load image for augmentation: {filename}")
+                continue
+
+            augmented = augmentations(image=image)["image"]
+            aug_filename = f"aug_{uuid.uuid4().hex[:8]}_{filename}"
+            aug_path = os.path.join(augmented_folder, aug_filename)
+            cv2.imwrite(aug_path, augmented)
+            print(f"Saved augmented image: {aug_filename}")
+
 #call functions
 convert_heic_to_png(input_dir, output_dir_png)
 crop_png_images(output_dir_png, output_dir_crop)
+augment_images(output_dir_crop, output_dir_augmented)
